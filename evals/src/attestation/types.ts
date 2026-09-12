@@ -10,6 +10,14 @@
  */
 export type EvalPlatform = "claude-code" | "opencode" | "codex";
 
+export interface AttestationWaiver {
+	readonly reason: string;
+	readonly granted_at: string;
+	readonly granted_commit: string;
+	readonly waived_deps_hash: string;
+	readonly expires_after_version: string;
+}
+
 /**
  * Root attestation manifest structure.
  */
@@ -17,6 +25,7 @@ export interface AttestationManifest {
 	readonly schema_version: string;
 	readonly skills: Record<string, SkillAttestation>;
 	readonly files: Record<string, string>; // path -> hash
+	readonly waivers?: Record<string, AttestationWaiver>;
 }
 
 /**
@@ -71,8 +80,9 @@ export interface HashResult {
  */
 export interface VerificationResult {
 	readonly skill: string;
-	readonly status: "current" | "stale" | "missing";
+	readonly status: "current" | "stale" | "missing" | "waived";
 	readonly reason?: string;
+	readonly expires_after_version?: string;
 	readonly expected_hash?: string;
 	readonly actual_hash?: string;
 }
@@ -86,5 +96,6 @@ export interface VerificationSummary {
 	readonly current: number;
 	readonly stale: number;
 	readonly missing: number;
+	readonly waived: number;
 	readonly results: readonly VerificationResult[];
 }

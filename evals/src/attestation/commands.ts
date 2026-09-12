@@ -13,6 +13,7 @@ import { buildDependencyGraph, PLUGIN_SUFFIXES } from "./deps-graph.js";
 import { loadManifest, saveManifest, updateManifest } from "./manifest.js";
 import { computeDepsHash, computePromptHash } from "./prompt-hash.js";
 import type {
+	AttestationManifest,
 	DependencyGraph,
 	EvalPlatform,
 	HashResult,
@@ -448,12 +449,55 @@ function extractSkillKeyFromManifestKey(key: string): string {
 	return key;
 }
 
+export function compareVersions(left: string, right: string): number {
+	const leftParts = left.split(".").map(Number);
+	const rightParts = right.split(".").map(Number);
+	for (let index = 0; index < 3; index += 1) {
+		const difference = (leftParts[index] ?? 0) - (rightParts[index] ?? 0);
+		if (difference !== 0) return difference < 0 ? -1 : 1;
+	}
+	return 0;
+}
+
+async function getCurrentReleaseVersion(): Promise<string | undefined> {
+	try {
+		const content = (await Bun.file(
+			".release-please-manifest.json",
+		).json()) as Record<string, string>;
+		const version = content["."];
+		return typeof version === "string" && /^\d+\.\d+\.\d+$/.test(version)
+			? version
+			: undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function isValidWaiver(
+	waiver: unknown,
+): waiver is NonNullable<AttestationManifest["waivers"]>[string] {
+	if (!waiver || typeof waiver !== "object") return false;
+	const record = waiver as Record<string, unknown>;
+	return (
+		[
+			"reason",
+			"granted_at",
+			"granted_commit",
+			"waived_deps_hash",
+			"expires_after_version",
+		].every((field) => typeof record[field] === "string") &&
+		/^\d+\.\d+\.\d+$/.test(record.expires_after_version as string)
+	);
+}
+
 /**
  * Verify a single skill's attestation against current file hashes.
  */
-function verifySkill(
+export function verifySkill(
 	manifestKey: string,
 	attestation: SkillAttestation,
+	manifest: AttestationManifest,
+	currentReleaseVersion: string | undefined,
 ): TE.TaskEither<Error, VerificationResult> {
 	const skillKey = extractSkillKeyFromManifestKey(manifestKey);
 	const platform = extractPlatformFromKey(manifestKey);
@@ -467,10 +511,53 @@ function verifySkill(
 			const currentDepsHash = computeDepsHash(hashes);
 
 			if (currentDepsHash !== attestation.deps_hash) {
+				const waiver = manifest.waivers?.[manifestKey];
+				if (waiver && !isValidWaiver(waiver)) {
+					return {
+						skill: manifestKey,
+						status: "stale",
+						reason: "Dependency hash mismatch (malformed waiver)",
+						expected_hash: attestation.deps_hash,
+						actual_hash: currentDepsHash,
+					};
+				}
+				if (
+					waiver &&
+					waiver.waived_deps_hash === currentDepsHash &&
+					currentReleaseVersion !== undefined &&
+					compareVersions(
+						currentReleaseVersion,
+						waiver.expires_after_version,
+					) <= 0
+				) {
+					return {
+						skill: manifestKey,
+						status: "waived",
+						reason: waiver.reason,
+						expires_after_version: waiver.expires_after_version,
+						expected_hash: attestation.deps_hash,
+						actual_hash: currentDepsHash,
+					};
+				}
+				let reason = "Dependency hash mismatch";
+				if (waiver && waiver.waived_deps_hash !== currentDepsHash) {
+					reason += " (waiver present but pinned to a different hash)";
+				}
+				if (waiver && currentReleaseVersion === undefined) {
+					reason += " (release version missing or malformed)";
+				} else if (
+					waiver &&
+					compareVersions(
+						currentReleaseVersion as string,
+						waiver.expires_after_version,
+					) > 0
+				) {
+					reason += ` (waiver expired after ${waiver.expires_after_version})`;
+				}
 				return {
 					skill: manifestKey,
 					status: "stale",
-					reason: "Dependency hash mismatch",
+					reason,
 					expected_hash: attestation.deps_hash,
 					actual_hash: currentDepsHash,
 				};
@@ -503,26 +590,39 @@ export function verifyAttestations(): TE.TaskEither<
 > {
 	return pipe(
 		loadManifest(),
-		TE.chain((manifest) =>
+		TE.bindTo("manifest"),
+		TE.bind("currentReleaseVersion", () =>
+			TE.fromTask(getCurrentReleaseVersion),
+		),
+		TE.chain(({ manifest, currentReleaseVersion }) =>
 			pipe(
 				Object.entries(manifest.skills),
-				A.map(([key, attestation]) => verifySkill(key, attestation)),
+				A.map(([key, attestation]) =>
+					verifySkill(key, attestation, manifest, currentReleaseVersion),
+				),
 				A.sequence(TE.ApplicativePar),
 			),
 		),
 		TE.map((results) => {
-			const current = results.filter((r) => r.status === "current").length;
-			const stale = results.filter((r) => r.status === "stale").length;
-			const missing = results.filter((r) => r.status === "missing").length;
-
-			return {
-				passed: stale === 0 && missing === 0,
-				total: results.length,
-				current,
-				stale,
-				missing,
-				results,
-			};
+			return summarizeResults(results);
 		}),
 	);
+}
+
+export function summarizeResults(
+	results: readonly VerificationResult[],
+): VerificationSummary {
+	const current = results.filter((r) => r.status === "current").length;
+	const stale = results.filter((r) => r.status === "stale").length;
+	const missing = results.filter((r) => r.status === "missing").length;
+	const waived = results.filter((r) => r.status === "waived").length;
+	return {
+		passed: stale === 0 && missing === 0,
+		total: results.length,
+		current,
+		stale,
+		missing,
+		waived,
+		results,
+	};
 }
