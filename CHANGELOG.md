@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.14](https://github.com/rp1-run/rp1/compare/v0.7.13...v0.7.14) (2026-09-12)
+
+
+### Bug Fixes
+
+* **deps:** patch critical/high advisories in cli (liquidjs, shell-quote, smol-toml, yaml, ws) ([#453](https://github.com/rp1-run/rp1/issues/453)) ([66c9ef1](https://github.com/rp1-run/rp1/commit/66c9ef1af45aeb66c3a259b2367da580d601947d))
+* **deps:** patch vite, ws, undici, yaml and other advisories in web-ui and evals ([#454](https://github.com/rp1-run/rp1/issues/454)) ([137b402](https://github.com/rp1-run/rp1/commit/137b4021161e7b9673e9147fa4b28cbe6ea56554))
+
 ## [0.7.13](https://github.com/rp1-run/rp1/compare/v0.7.12...v0.7.13) (2026-09-12)
 
 
