@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { realpathSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -110,14 +111,31 @@ describe("agent-tools command adapter", () => {
 			invalid: 0,
 		});
 
-		await expectExit(["rp1-root-dir"], 0);
+		// rp1-root-dir canonicalizes linked git worktrees to the main checkout,
+		// so asserting against the ambient repository root fails whenever the
+		// test itself runs inside a worktree. Resolve from an isolated temp
+		// project instead; worktree semantics are covered by resolver.test.ts.
+		await mkdir(join(tempDir, ".rp1"), { recursive: true });
+		await writeFile(
+			join(tempDir, ".rp1", "project_id"),
+			"550e8400-e29b-41d4-a716-446655440042\n",
+		);
+
+		const previousCwd = process.cwd();
+		process.chdir(tempDir);
+		try {
+			await expectExit(["rp1-root-dir"], 0);
+		} finally {
+			process.chdir(previousCwd);
+		}
 		const roots = lastOutput<{
 			success: boolean;
-			data: { projectRoot: string; workRoot: string };
+			data: { projectRoot: string; workRoot: string; isWorktree: boolean };
 		}>();
 		expect(roots.success).toBe(true);
-		expect(roots.data.projectRoot).toBe(resolve(".."));
+		expect(roots.data.projectRoot).toBe(realpathSync(tempDir));
 		expect(roots.data.workRoot).toContain(".rp1/work");
+		expect(roots.data.isWorktree).toBe(false);
 	});
 
 	test("resolve-args and workflow-bootstrap resolve generated workflow inputs", async () => {
