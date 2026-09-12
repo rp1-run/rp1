@@ -2,6 +2,16 @@ import { describe, expect, test } from "bun:test";
 import { getCopyableFilePath } from "../../../components/FileTree/FileTreeNode";
 
 describe("getCopyableFilePath", () => {
+	test("prefers the server-resolved absolute path when the tree provides one", () => {
+		expect(
+			getCopyableFilePath(
+				"/Users/prem/Development/buzz",
+				".rp1/work/notes/stack.md",
+				"/Users/prem/.rp1/projects/8f20b5a0/work/notes/stack.md",
+			),
+		).toBe("/Users/prem/.rp1/projects/8f20b5a0/work/notes/stack.md");
+	});
+
 	test("joins project root with canonical rp1 file paths without duplicating .rp1", () => {
 		expect(
 			getCopyableFilePath(
