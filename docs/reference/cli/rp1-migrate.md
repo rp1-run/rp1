@@ -34,6 +34,13 @@ The command is fully automatic with no interactive prompts. It is safe to run mu
 
 Use `--dry-run` to preview planned migration work. Dry-run mode reports Activity search rows that would be created or refreshed without creating the search table, rebuilding rows, moving files, or rewriting run/event history.
 
+## Automatic Detection
+
+Parameterized skills and workflows now surface a non-blocking offer to run
+`/rp1-base:rp1-migrate` when legacy artifacts, a missing `.rp1/project_id`, or
+unlinked database rows are detected. No-argument skills do not surface this
+offer.
+
 ## Project Root Discovery
 
 The command locates the project root by:

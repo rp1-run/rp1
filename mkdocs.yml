@@ -122,6 +122,7 @@ nav:
       - check-update: reference/cli/check-update.md
       - rp1 migrate: reference/cli/rp1-migrate.md
       - self-update: reference/base/self-update.md
+      - rp1-migrate: reference/base/rp1-migrate.md
     - Platform Support:
       - GitHub Copilot CLI Setup: reference/platforms/copilot.md
       - Antigravity CLI: reference/platforms/antigravity.md
