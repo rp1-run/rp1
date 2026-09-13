@@ -45,6 +45,8 @@ export interface ResolvedDirectories {
 	readonly nextStepCommand?: "rp1 init" | "rp1 migrate";
 	readonly kbInitialized: boolean;
 	readonly kbNextStepHint?: string;
+	readonly needsMigration?: boolean;
+	readonly migrationHint?: string;
 }
 
 /** Output payload for the resolve-args tool. */

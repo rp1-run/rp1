@@ -29,6 +29,10 @@ import type {
 	ArgumentDefinition,
 	EnvironmentDefinition,
 } from "../../build/models.js";
+import {
+	buildMigrationHint,
+	detectPendingMigration,
+} from "../../migrate/pending-detection.js";
 import { loadArgumentDefaultsForSkill } from "../../settings/loader.js";
 import type {
 	ParsedSchema,
@@ -449,6 +453,7 @@ const buildFallbackDirectories = (projectRoot: string): ResolvedDirectories => {
 		"local",
 	);
 	const kbInitialized = hasKBContent(kbRoot);
+	const migration = { needsMigration: false, reasons: [] as readonly string[] };
 
 	return {
 		projectRoot: resolvedProjectRoot,
@@ -461,13 +466,21 @@ const buildFallbackDirectories = (projectRoot: string): ResolvedDirectories => {
 		nextStepCommand: "rp1 init",
 		kbInitialized,
 		...(!kbInitialized && { kbNextStepHint: KB_NOT_INITIALIZED_HINT }),
+		needsMigration: migration.needsMigration,
+		...(migration.needsMigration && {
+			migrationHint: buildMigrationHint(migration.reasons),
+		}),
 	};
 };
 
 const mapResolvedDirectories = (
 	directories: ResolvedDirectorySet,
+	homeDir?: string,
 ): ResolvedDirectories => {
 	const kbInitialized = hasKBContent(directories.kbRoot);
+	const migration = detectPendingMigration(directories.projectRoot, {
+		homeDir,
+	});
 
 	return {
 		projectRoot: directories.projectRoot,
@@ -483,6 +496,10 @@ const mapResolvedDirectories = (
 		}),
 		kbInitialized,
 		...(!kbInitialized && { kbNextStepHint: KB_NOT_INITIALIZED_HINT }),
+		needsMigration: migration.needsMigration,
+		...(migration.needsMigration && {
+			migrationHint: buildMigrationHint(migration.reasons),
+		}),
 	};
 };
 
@@ -494,7 +511,7 @@ export const resolveDirectories = (
 		resolveDirectorySet(projectRoot, options),
 		E.match(
 			() => buildFallbackDirectories(projectRoot),
-			(directories) => mapResolvedDirectories(directories),
+			(directories) => mapResolvedDirectories(directories, options.homeDir),
 		),
 	);
 

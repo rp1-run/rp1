@@ -199,6 +199,8 @@ const createTestEngine = () => {
 		return value;
 	});
 
+	engine.registerFilter("copilot_permissions", () => []);
+
 	engine.registerFilter(
 		"param_transform",
 		(content: string, platform: string) => {
@@ -267,6 +269,119 @@ const createTestEngine = () => {
 };
 
 describeWithLiquid("template rendering", () => {
+	test("injects migration guidance for parameterized skills on every platform", async () => {
+		const platformOffers = {
+			"claude-code": "/rp1-base:rp1-migrate",
+			codex: "$rp1-base-rp1-migrate",
+			opencode: 'command_invoke("rp1-base:rp1-migrate")',
+			antigravity: "/rp1-base:rp1-migrate",
+			copilot: "/rp1-base/rp1-migrate",
+		} as const;
+
+		for (const [platform, offer] of Object.entries(platformOffers)) {
+			const engine = createTestEngine();
+			const result = await engine.renderFile(`${platform}/skill`, {
+				platform,
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "skill",
+					name: "example",
+					namespacedName: "rp1-base-example",
+					description: "Example skill",
+					content: "Skill content.",
+					metadata: {
+						arguments: [
+							{
+								name: "FEATURE_ID",
+								type: "string",
+								required: true,
+								description: "Feature identifier",
+							},
+						],
+					},
+					supportingFiles: [],
+				},
+			});
+
+			expect(result).toContain(
+				"| rp1NeedsMigration | `data.directories.needsMigration` |",
+			);
+			expect(result).toContain(
+				"| rp1MigrationHint | `data.directories.migrationHint` |",
+			);
+			expect(result).toContain(offer);
+			expect(result).toContain(
+				"continue the current skill without stopping or repeating the offer",
+			);
+		}
+	});
+
+	test("injects migration guidance in workflow bootstrap branches", async () => {
+		for (const platform of [
+			"claude-code",
+			"codex",
+			"opencode",
+			"antigravity",
+		] as const) {
+			const engine = createTestEngine();
+			const result = await engine.renderFile(`${platform}/skill`, {
+				platform,
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "skill",
+					name: "workflow",
+					namespacedName: "rp1-base-workflow",
+					description: "Workflow skill",
+					content: "Workflow content.",
+					metadata: { isWorkflow: true },
+					supportingFiles: [],
+				},
+			});
+
+			expect(result).toContain("## 0. Workflow Bootstrap");
+			expect(result).toContain(
+				"| rp1NeedsMigration | `data.directories.needsMigration` |",
+			);
+			expect(result).toContain(
+				"| rp1MigrationHint | `data.directories.migrationHint` |",
+			);
+			expect(result).toContain("rp1-migrate");
+			expect(result).toContain(
+				"continue the current skill without stopping or repeating the offer",
+			);
+		}
+	});
+
+	test("does not inject migration guidance for no-argument skills", async () => {
+		for (const platform of [
+			"claude-code",
+			"codex",
+			"opencode",
+			"antigravity",
+			"copilot",
+		] as const) {
+			const engine = createTestEngine();
+			const result = await engine.renderFile(`${platform}/skill`, {
+				platform,
+				pluginName: "base",
+				namespacedPluginName: "rp1-base",
+				artifact: {
+					type: "skill",
+					name: "simple",
+					namespacedName: "rp1-base-simple",
+					description: "Simple skill",
+					content: "Simple content.",
+					supportingFiles: [],
+				},
+			});
+
+			expect(result).not.toContain("rp1NeedsMigration");
+			expect(result).not.toContain("rp1-migrate");
+		}
+	});
+
 	describe("opencode/skill.liquid", () => {
 		test("renders skill with allowed-tools", async () => {
 			const engine = createTestEngine();

@@ -146,7 +146,7 @@ const walkUpToProjectRoot = (
 const missingProjectIdError = (projectRoot: string): CLIError =>
 	notFoundError(
 		".rp1/project_id",
-		`Found a legacy rp1 project at ${projectRoot}. Run 'rp1 migrate' from that project root to create .rp1/project_id.`,
+		`Found a legacy rp1 project at ${projectRoot}. Run 'rp1 migrate' from that project root to create .rp1/project_id, or run /rp1-base:rp1-migrate to migrate safely.`,
 	);
 
 const readGitContext = (cwd: string): GitContext | undefined => {

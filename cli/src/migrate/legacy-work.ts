@@ -1,14 +1,16 @@
+import type { Dirent } from "node:fs";
 import {
 	copyFileSync,
 	existsSync,
 	lstatSync,
 	mkdirSync,
 	readdirSync,
+	realpathSync,
 	renameSync,
 	unlinkSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, sep as pathSeparator, resolve } from "node:path";
 import { normalizeProjectKey } from "../../shared/directory-resolution.js";
 
 export interface LegacyWorkResult {
@@ -24,8 +26,9 @@ const isSymlinkOutsideExpected = (
 	try {
 		const stats = lstatSync(filePath);
 		if (!stats.isSymbolicLink()) return false;
-		const target = resolve(filePath);
-		return !target.startsWith(resolve(expectedBase));
+		const target = realpathSync(filePath);
+		const base = resolve(expectedBase);
+		return target !== base && !target.startsWith(`${base}${pathSeparator}`);
 	} catch {
 		return true;
 	}
@@ -110,12 +113,7 @@ export const findLegacyWorkDir = (
 
 	if (!existsSync(legacyPath)) return undefined;
 
-	try {
-		const entries = readdirSync(legacyPath);
-		if (entries.length === 0) return undefined;
-	} catch {
-		return undefined;
-	}
+	if (!hasLegacyWorkArtifacts(legacyPath)) return undefined;
 
 	return legacyPath;
 };
@@ -131,10 +129,75 @@ const KNOWN_WORK_ENTRIES = new Set([
 	"pr-review-checkpoint.json",
 ]);
 
-const isWorkArtifact = (entryName: string): boolean => {
+export const isWorkArtifact = (entryName: string): boolean => {
 	if (KNOWN_WORK_ENTRIES.has(entryName)) return true;
 	// JSON/markdown files at top level are likely work artifacts
 	if (entryName.endsWith(".md") || entryName.endsWith(".json")) return true;
+	return false;
+};
+
+export const isEligibleLegacyWorkEntry = (
+	entryName: string,
+	entryPath: string,
+	expectedBase: string,
+): boolean => {
+	if (!isWorkArtifact(entryName)) return false;
+	try {
+		const stats = lstatSync(entryPath);
+		if (stats.isSymbolicLink())
+			return !isSymlinkOutsideExpected(entryPath, expectedBase);
+		if (stats.isDirectory()) return !isGitRepo(entryPath);
+		return stats.isFile();
+	} catch {
+		return false;
+	}
+};
+
+const containsActualArtifact = (
+	dirPath: string,
+	expectedBase: string,
+): boolean => {
+	let entries: Dirent[];
+	try {
+		entries = readdirSync(dirPath, { withFileTypes: true });
+	} catch {
+		return false;
+	}
+	for (const entry of entries) {
+		const entryPath = join(dirPath, entry.name);
+		try {
+			const stats = lstatSync(entryPath);
+			if (
+				stats.isSymbolicLink() &&
+				isSymlinkOutsideExpected(entryPath, expectedBase)
+			)
+				continue;
+			if (stats.isDirectory() && isGitRepo(entryPath)) continue;
+			if (stats.isFile()) return true;
+			if (
+				stats.isDirectory() &&
+				containsActualArtifact(entryPath, expectedBase)
+			)
+				return true;
+		} catch {}
+	}
+	return false;
+};
+
+export const hasLegacyWorkArtifacts = (legacyPath: string): boolean => {
+	let entries: Dirent[];
+	try {
+		entries = readdirSync(legacyPath, { withFileTypes: true });
+	} catch {
+		return false;
+	}
+	for (const entry of entries) {
+		const entryPath = join(legacyPath, entry.name);
+		if (!isEligibleLegacyWorkEntry(entry.name, entryPath, legacyPath)) continue;
+		if (entry.isFile()) return true;
+		if (entry.isDirectory() && containsActualArtifact(entryPath, legacyPath))
+			return true;
+	}
 	return false;
 };
 
