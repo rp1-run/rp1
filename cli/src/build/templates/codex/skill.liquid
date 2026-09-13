@@ -96,12 +96,15 @@ Parse the JSON response. Extract values from `data.arguments`, `data.directories
 | codeRoot | `data.directories.codeRoot` |
 | rp1DirectoryStatus | `data.directories.status` |
 | rp1NextStepCommand | `data.directories.nextStepCommand` |
+| rp1NeedsMigration | `data.directories.needsMigration` |
+| rp1MigrationHint | `data.directories.migrationHint` |
 | workflowName | `data.workflow.name` |
 | workflowRunPolicy | `data.workflow.runPolicy` |
 
 If workflow bootstrap fails, required arguments remain unresolved, or `rp1DirectoryStatus` is not `initialized`, warn the user about the tool error and stop.
 
 Use `RUN_ID` for all subsequent emits and artifact registrations. Use the returned canonical directories for all subsequent paths. Do not call `resolve-args`, do not call `rp1-root-dir`, do not generate a UUID, and do not call `emit resume-run` directly.
+If `rp1NeedsMigration` is true, tell the user `rp1MigrationHint` once and offer to run `$rp1-base-rp1-migrate`; continue the current skill without stopping or repeating the offer.
 {% elsif artifact.metadata.arguments and artifact.metadata.arguments.size > 0 %}
 
 ## 0. Resolve Arguments
@@ -124,10 +127,13 @@ Parse the JSON response. Extract values from `data.arguments` and `data.director
 | workRoot | `data.directories.workRoot` |
 | rp1DirectoryStatus | `data.directories.status` |
 | rp1NextStepCommand | `data.directories.nextStepCommand` |
+| rp1NeedsMigration | `data.directories.needsMigration` |
+| rp1MigrationHint | `data.directories.migrationHint` |
 
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not call `rp1-root-dir`, re-derive project directories, or re-parse arguments.
+If `rp1NeedsMigration` is true, tell the user `rp1MigrationHint` once and offer to run `$rp1-base-rp1-migrate`; continue the current skill without stopping or repeating the offer.
 {% endif %}
 
 {% render "shared/host-context", platform: platform %}
