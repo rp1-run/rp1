@@ -40,24 +40,24 @@
   },
   "waivers": {
     "rp1-dev:build@claude-code": {
-      "reason": "Release 0.7.13 unblock: prompt graph changed by #449 (Codex write path, feature-architect recovery) and #450 (reuse-first scope discipline in shared engineering-discipline.md) after the Jul 29 build eval run; no eval API access available to re-run. 0.7.14 is a dependency-only follow-up release with no prompt changes. Re-attest via `just eval-run --attest --commit` and delete this waiver.",
-      "granted_at": "2026-09-12T20:44:02.300Z",
-      "granted_commit": "c2aa7312",
-      "waived_deps_hash": "sha256:b4462c93ec9818eab187d0434a12c4f66de1502f6688639b46081dee81b91e1b",
+      "reason": "Re-pinned after legacy-migration detection PR changed the injected Resolve Arguments section in every platform skill template (adds rp1NeedsMigration/rp1MigrationHint rows and a non-blocking migration offer); no eval API access to re-run. Release 0.7.13 unblock: prompt graph changed by #449 (Codex write path, feature-architect recovery) and #450 (reuse-first scope discipline in shared engineering-discipline.md) after the Jul 29 build eval run; no eval API access available to re-run. 0.7.14 is a dependency-only follow-up release with no prompt changes. Re-attest via `just eval-run --attest --commit` and delete this waiver.",
+      "granted_at": "2026-09-13T01:49:38Z",
+      "granted_commit": "631c832e",
+      "waived_deps_hash": "sha256:d63018b28c56671476d29961355883d5c3ea3324f63c0e2f81de584dd388689f",
       "expires_after_version": "0.7.14"
     },
     "rp1-dev:build-fast@claude-code": {
-      "reason": "Release 0.7.13 unblock: prompt graph changed by #449 (Codex write path, feature-architect recovery) and #450 (reuse-first scope discipline in shared engineering-discipline.md) after the Jul 28 build-fast eval run; no eval API access available to re-run. 0.7.14 is a dependency-only follow-up release with no prompt changes. Re-attest via `just eval-run --attest --commit` and delete this waiver.",
-      "granted_at": "2026-09-12T20:44:02.300Z",
-      "granted_commit": "c2aa7312",
-      "waived_deps_hash": "sha256:8d2f1cadc5c6cef5e36dcc235cd1fa516fa55b247958e227319d0947c48621e7",
+      "reason": "Re-pinned after legacy-migration detection PR changed the injected Resolve Arguments section in every platform skill template (adds rp1NeedsMigration/rp1MigrationHint rows and a non-blocking migration offer); no eval API access to re-run. Release 0.7.13 unblock: prompt graph changed by #449 (Codex write path, feature-architect recovery) and #450 (reuse-first scope discipline in shared engineering-discipline.md) after the Jul 28 build-fast eval run; no eval API access available to re-run. 0.7.14 is a dependency-only follow-up release with no prompt changes. Re-attest via `just eval-run --attest --commit` and delete this waiver.",
+      "granted_at": "2026-09-13T01:49:38Z",
+      "granted_commit": "631c832e",
+      "waived_deps_hash": "sha256:888fe6021f7911ce7429220d02ca0b332a906649586a16dbf54c8e345c2e5d24",
       "expires_after_version": "0.7.14"
     },
     "rp1-dev:speedrun@claude-code": {
-      "reason": "Release 0.7.13 unblock: prompt graph changed by #449 (Codex write path, feature-architect recovery) and #450 (reuse-first scope discipline in shared engineering-discipline.md) after the Jul 4 speedrun eval run; no eval API access available to re-run. 0.7.14 is a dependency-only follow-up release with no prompt changes. Re-attest via `just eval-run --attest --commit` and delete this waiver.",
-      "granted_at": "2026-09-12T20:44:02.300Z",
-      "granted_commit": "c2aa7312",
-      "waived_deps_hash": "sha256:d6de3ff97804a87893753a474f3a2bcfe3ba6523b45a4b49e28ea00e7b456fa0",
+      "reason": "Re-pinned after legacy-migration detection PR changed the injected Resolve Arguments section in every platform skill template (adds rp1NeedsMigration/rp1MigrationHint rows and a non-blocking migration offer); no eval API access to re-run. Release 0.7.13 unblock: prompt graph changed by #449 (Codex write path, feature-architect recovery) and #450 (reuse-first scope discipline in shared engineering-discipline.md) after the Jul 4 speedrun eval run; no eval API access available to re-run. 0.7.14 is a dependency-only follow-up release with no prompt changes. Re-attest via `just eval-run --attest --commit` and delete this waiver.",
+      "granted_at": "2026-09-13T01:49:38Z",
+      "granted_commit": "631c832e",
+      "waived_deps_hash": "sha256:3e1270cafd685d70ea695000c8704862d2178135e1d73b95b89d7104ea9f33db",
       "expires_after_version": "0.7.14"
     }
   },
