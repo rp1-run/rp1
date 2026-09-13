@@ -741,6 +741,7 @@ description: "A skill with no arguments for testing purposes"
 				kbInitialized: false,
 				kbNextStepHint:
 					"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
+				needsMigration: false,
 			});
 			expect(result.right.unresolved).toEqual([]);
 		}
@@ -1252,6 +1253,7 @@ metadata:
 				kbInitialized: false,
 				kbNextStepHint:
 					"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
+				needsMigration: false,
 			});
 		}
 	});
@@ -1299,6 +1301,9 @@ metadata:
 				kbInitialized: false,
 				kbNextStepHint:
 					"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
+				needsMigration: true,
+				migrationHint:
+					"Legacy rp1 artifacts detected (missing project_id). Run /rp1-base:rp1-migrate to migrate safely.",
 			});
 		}
 	});
@@ -1343,6 +1348,7 @@ metadata:
 				kbInitialized: false,
 				kbNextStepHint:
 					"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
+				needsMigration: false,
 			});
 		}
 	});
@@ -1392,6 +1398,7 @@ metadata:
 				kbInitialized: false,
 				kbNextStepHint:
 					"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
+				needsMigration: false,
 			});
 		}
 	});
@@ -1448,6 +1455,7 @@ metadata:
 				kbInitialized: false,
 				kbNextStepHint:
 					"Knowledge base not found. Run /rp1-base:knowledge-build to initialize it.",
+				needsMigration: false,
 			});
 		}
 	});
