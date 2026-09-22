@@ -236,6 +236,14 @@ After changes:
 
 If `uv`, `bun`, or npm package installs fail unexpectedly for network-related reasons, there may be environment-specific handling that applies. Consult your memory / local environment notes for the relevant steps before retrying repeatedly or escalating to the user.
 
+On a network that blocks `registry.npmjs.org`, `bun install` fails with `IntegrityCheckFailed` because the blocked-page HTML is fetched instead of the tarball. Override the registry for the shell rather than editing the committed `bunfig.toml` files, which must keep pointing at npmjs so the lockfiles stay installable for everyone else:
+
+```sh
+export BUN_CONFIG_REGISTRY=<your internal npm registry URL>
+```
+
+`bun add` then stamps that host onto every entry of the lockfile it touches. Run `just normalize-lockfiles` before committing; `just check-no-artifactory` runs on pre-commit and pre-push and fails on any lockfile that still carries an internal host.
+
 <!-- rp1:start:v0.7.12 -->
 ## rp1 Knowledge Base
 

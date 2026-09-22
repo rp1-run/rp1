@@ -19,6 +19,10 @@ pre-commit:
       glob: "plugins/**/*.md"
       run: "just catalog-check || echo 'WARNING: Catalogue is stale. Run: just catalog-generate'"
       fail_text: "Advisory: Catalogue needs regeneration"
+    no-artifactory:
+      glob: "*bun.lock"
+      run: just check-no-artifactory
+      fail_text: "Lockfiles contain internal Artifactory references — run: just normalize-lockfiles"
 pre-push:
   parallel: true
   commands:
@@ -38,4 +42,4 @@ pre-push:
       fail_text: "Advisory: Some prompts need re-attestation"
     no-artifactory:
       run: just check-no-artifactory
-      fail_text: "Lockfiles contain internal Artifactory references — see output above for details"
+      fail_text: "Lockfiles contain internal Artifactory references — run: just normalize-lockfiles"
