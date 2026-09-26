@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.15](https://github.com/rp1-run/rp1/compare/v0.7.14...v0.7.15) (2026-09-26)
+
+
+### Features
+
+* detect legacy rp1 artifacts and offer the rp1-migrate skill ([#457](https://github.com/rp1-run/rp1/issues/457)) ([cc58d25](https://github.com/rp1-run/rp1/commit/cc58d254fb74aae8b4edcb8273273b0d140f5624))
+
 ## [0.7.14](https://github.com/rp1-run/rp1/compare/v0.7.13...v0.7.14) (2026-09-12)
 
 
