@@ -27,6 +27,9 @@ jobs:
 
       - uses: extractions/setup-just@v2
 
+      - name: Check lockfiles for internal registry URLs
+        run: just check-no-artifactory
+
       - name: Install CLI dependencies
         run: cd cli && bun install
 
