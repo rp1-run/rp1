@@ -76,6 +76,7 @@
 | `/guide` | base | Ask about rp1 capabilities, discover skills, and get workflow guidance. |
 | `/knowledge-build` | base | Orchestrates parallel KB generation using spatial analysis and a map-reduce architecture with incremental and feature-learning modes. |
 | `/note` | base | Capture session context as a structured, frontmatter-rich markdown note under .rp1/work/notes/ with auto-maintained index and log. |
+| `/rp1-migrate` | base | Safely migrate legacy rp1 project artifacts to the current layout. |
 | `/self-update` | base | Update rp1 and run the full post-update lifecycle. |
 
 ## Strategy

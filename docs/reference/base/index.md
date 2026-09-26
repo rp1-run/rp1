@@ -20,6 +20,7 @@ date.
 | [`analyse-security`](analyse-security.md) | Comprehensive security validation and vulnerability scanning |
 | [`fix-mermaid`](fix-mermaid.md) | Validate and repair Mermaid diagrams in markdown files |
 | [`self-update`](self-update.md) | Update rp1 to the latest version |
+| [`rp1-migrate`](rp1-migrate.md) | Safely migrate legacy rp1 project artifacts |
 
 ---
 
@@ -65,6 +66,7 @@ Repair and validate documentation artifacts.
 Keep rp1 up to date.
 
 - **[`self-update`](self-update.md)**: Updates rp1 using your package manager (Homebrew, Scoop) or provides manual instructions for other installations.
+- **[`rp1-migrate`](rp1-migrate.md)**: Detects, previews, and safely migrates legacy rp1 project artifacts.
 
 ---
 

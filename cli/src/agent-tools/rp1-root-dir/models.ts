@@ -11,4 +11,6 @@ export interface Rp1RootResult {
 	readonly storageMode: StorageMode;
 	readonly kbInitialized: boolean;
 	readonly kbNextStepHint?: string;
+	readonly needsMigration?: boolean;
+	readonly migrationHint?: string;
 }

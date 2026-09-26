@@ -6,6 +6,10 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { ResolvedDirectorySet } from "../../../shared/directory-resolution.js";
 import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
+import {
+	buildMigrationHint,
+	detectPendingMigration,
+} from "../../migrate/pending-detection.js";
 import type { Rp1RootResult } from "./models.js";
 
 export interface Rp1RootResolutionOptions {
@@ -40,6 +44,9 @@ export const resolveRp1Root = (
 			}),
 			E.map((directories: ResolvedDirectorySet): Rp1RootResult => {
 				const kbInitialized = hasKBContent(directories.kbRoot);
+				const migration = detectPendingMigration(directories.projectRoot, {
+					homeDir: options.homeDir,
+				});
 				return {
 					projectRoot: directories.projectRoot,
 					projectId: directories.projectId,
@@ -51,6 +58,10 @@ export const resolveRp1Root = (
 					storageMode: directories.storageMode,
 					kbInitialized,
 					...(!kbInitialized && { kbNextStepHint: KB_NOT_INITIALIZED_HINT }),
+					needsMigration: migration.needsMigration,
+					...(migration.needsMigration && {
+						migrationHint: buildMigrationHint(migration.reasons),
+					}),
 				};
 			}),
 		),
