@@ -17,6 +17,11 @@ builds:
     flags:
       - --compile
       - --minify
+    hooks:
+      post:
+        # bun --compile leaves darwin binaries with an invalid ad-hoc signature,
+        # which macOS kills on launch (SIGKILL). Re-sign and verify on the macOS runner.
+        - cmd: sh -c 'if [ "{{ .Os }}" = darwin ]; then codesign --force --sign - "{{ .Path }}" && codesign --verify --strict "{{ .Path }}"; fi'
 
 archives:
   - id: default
