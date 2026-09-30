@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.16](https://github.com/rp1-run/rp1/compare/v0.7.15...v0.7.16) (2026-09-30)
+
+
+### Bug Fixes
+
+* **release:** re-sign darwin binaries so macOS stops killing rp1 on launch ([#460](https://github.com/rp1-run/rp1/issues/460)) ([0d58c0a](https://github.com/rp1-run/rp1/commit/0d58c0a2a522235e8a6c2bf57fd89ee98c053c31))
+
 ## [0.7.15](https://github.com/rp1-run/rp1/compare/v0.7.14...v0.7.15) (2026-09-26)
 
 
