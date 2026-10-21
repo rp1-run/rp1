@@ -29,6 +29,19 @@ package, permission, and workflow support boundaries.
 
 ---
 
+## Recommended Tools
+
+These tools are optional. You do not need them to install rp1 or run the first
+workflow below. Install one only when it matches how you work.
+
+| Tool | Install if you... | Notes |
+|------|-------------------|-------|
+| [GitHub CLI (`gh`)](https://cli.github.com/) | Review GitHub pull requests, address PR feedback, or scope tech-debt checks to a PR. | Must be installed and authenticated (`gh auth status`). See the [PR review](../guides/pr-review.md) and [PR feedback](../guides/pr-feedback.md) guides. |
+| [uv](https://docs.astral.sh/uv/getting-started/installation/) | Preview the rp1 docs locally with `just serve-docs`, or manage Python tooling in your own project. | rp1 itself does not require it. The docs recipes in the repository run through `uvx`. |
+| [Bun](https://bun.com/docs/installation) | Build rp1 from source, contribute to it, or use Bun in your own project. | Not needed to use rp1. The CLI installs as a standalone executable. See [DEVELOPMENT.md](https://github.com/rp1-run/rp1/blob/main/DEVELOPMENT.md) for contributor setup. |
+
+---
+
 ## Step 1: Install the rp1 CLI
 
 === "macOS"
