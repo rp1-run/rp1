@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import {
 	buildRuntimeEndpoint,
+	fetchRuntimeContract,
 	RuntimeProvider,
 	useRuntimeContract,
 } from "@/providers/RuntimeProvider";
@@ -82,6 +83,38 @@ describe("RuntimeProvider", () => {
 			"/api/v2/runtime?hostMode=native&cacheBust=cache-1",
 			{ cache: "no-store" },
 		);
+	});
+
+	test("uses the HTTPS page origin when the daemon contract reports its HTTP upstream", async () => {
+		window.location.href = "https://arcade.example.test:7710/";
+		const fetchMock = mock(async () => {
+			return new Response(JSON.stringify(TEST_RUNTIME), {
+				headers: { "Content-Type": "application/json" },
+			});
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const contract = await fetchRuntimeContract();
+
+		expect(contract.baseUrl).toBe("https://arcade.example.test:7710");
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/v2/runtime",
+			{ cache: "no-store" },
+		);
+	});
+
+	test("keeps the browser's local origin for a local daemon", async () => {
+		window.location.href = "http://127.0.0.1:7710/";
+		const fetchMock = mock(async () => {
+			return new Response(JSON.stringify(TEST_RUNTIME), {
+				headers: { "Content-Type": "application/json" },
+			});
+		});
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		const contract = await fetchRuntimeContract();
+
+		expect(contract.baseUrl).toBe("http://127.0.0.1:7710");
 	});
 
 	test("renders a controlled failure for unsupported host modes", async () => {

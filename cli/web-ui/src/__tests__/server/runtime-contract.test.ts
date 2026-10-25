@@ -91,6 +91,28 @@ describe("Arcade runtime contract API", () => {
 		expect(body.buildId).toBe(manifest.buildId);
 	});
 
+	test("keeps the upstream HTTP origin despite public Host and forwarded HTTPS metadata", async () => {
+		const request = new Request(
+			"http://arcade.example.test:7710/api/v2/runtime",
+			{
+				headers: {
+					"X-Forwarded-Proto": "https",
+				},
+			},
+		);
+		const response = await handleV2RuntimeRequest(request, {
+			port: 7710,
+			startTime: 0,
+			webUIDir,
+			version: "fallback-version",
+		});
+		const body = (await response.json()) as ArcadeRuntimeContract;
+
+		expect(request.url).toBe("http://arcade.example.test:7710/api/v2/runtime");
+		expect(request.headers.get("x-forwarded-proto")).toBe("https");
+		expect(body.baseUrl).toBe("http://arcade.example.test:7710");
+	});
+
 	test("rejects unsupported host mode inputs", async () => {
 		const response = await handleV2RuntimeRequest(
 			runtimeRequest("http://127.0.0.1:7710/api/v2/runtime?hostMode=mobile"),

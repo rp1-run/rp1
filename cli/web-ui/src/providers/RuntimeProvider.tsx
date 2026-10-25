@@ -259,7 +259,13 @@ export async function fetchRuntimeContract(): Promise<ArcadeRuntimeContract> {
 		throw new Error(await readErrorMessage(response));
 	}
 
-	return validateRuntimeContract((await response.json()) as unknown);
+	const contract = validateRuntimeContract(
+		(await response.json()) as unknown,
+	);
+
+	// The browser loaded this UI from the authority its WebSocket must use.
+	// The daemon-side request URL may be HTTP behind a TLS-terminating proxy.
+	return { ...contract, baseUrl: window.location.origin };
 }
 
 export function RuntimeProvider({

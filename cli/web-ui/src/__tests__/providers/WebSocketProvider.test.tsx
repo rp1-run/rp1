@@ -161,6 +161,27 @@ describe("WebSocketProvider", () => {
 		expect(url.searchParams.get("lastEventId")).toBe("40");
 	});
 
+	test("uses a secure WebSocket for an HTTPS runtime origin", async () => {
+		const runtime = {
+			...TEST_RUNTIME,
+			baseUrl: "https://arcade.example.test:7710",
+		};
+
+		renderHook(() => useWebSocket(), {
+			wrapper: wrapperWithRuntime(runtime),
+		});
+
+		await waitFor(() => {
+			expect(getLatestGlobalSocket()).toBeDefined();
+		});
+
+		const socket = getLatestGlobalSocket();
+		expect(socket).toBeDefined();
+		expect(new URL(socket!.url).href).toBe(
+			"wss://arcade.example.test:7710/ws?scope=global",
+		);
+	});
+
 	test("normalizes replay events and routes snapshots while advancing the project cursor", async () => {
 		const receivedEvents: EventNotificationMessage[] = [];
 		const receivedSnapshots: StateSnapshotMessage[] = [];
