@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.17](https://github.com/rp1-run/rp1/compare/v0.7.16...v0.7.17) (2026-10-25)
+
+
+### Bug Fixes
+
+* **web-ui:** use public origin for websocket runtime ([9bd4e43](https://github.com/rp1-run/rp1/commit/9bd4e43d47873c5288f69bebd52c5b2acacff14d))
+
+
+### Documentation
+
+* document recommended workflow tools ([#462](https://github.com/rp1-run/rp1/issues/462)) ([bff06c2](https://github.com/rp1-run/rp1/commit/bff06c233c2801b4194c91a2ab8cc5f7e1fde028)), closes [#201](https://github.com/rp1-run/rp1/issues/201)
+
 ## [0.7.16](https://github.com/rp1-run/rp1/compare/v0.7.15...v0.7.16) (2026-09-30)
 
 
